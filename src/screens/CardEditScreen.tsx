@@ -96,7 +96,6 @@ const Button = (props: ButtonProps) => {
       containerStyle={containerStyle}
       distance={4}
     >
-      {/* shadow가 정상적으로 적용되지 않는 버그가 있어서 borderRadius 스타일을 분리 */}
       <ButtonContainer {...touchableProps} style={styles.buttonBorderRadius}>
         <ButtonText>{text}</ButtonText>
       </ButtonContainer>
@@ -108,6 +107,7 @@ const TextField = (props: TextFieldProps) => {
   const { onFocus, onBlur, title, containerStyle, ...textInputProps } = props;
 
   const [isFocused, setIsFocused] = useState<boolean>(false);
+
   const onFocusCallback = useCallback(
     (event: NativeSyntheticEvent<TextInputFocusEventData>) => {
       setIsFocused(true);
@@ -127,11 +127,13 @@ const TextField = (props: TextFieldProps) => {
   return (
     <View style={containerStyle}>
       <FieldTitle focused={isFocused}>{title}</FieldTitle>
+
       <StyledTextInput
         onFocus={onFocusCallback}
         onBlur={onBlurCallback}
         {...textInputProps}
       />
+
       <FieldBottomBorder focused={isFocused} />
     </View>
   );
@@ -142,16 +144,21 @@ type CardEditScreenProps = NativeStackScreenProps<RootStackParams, 'Edit'>;
 
 const CardEditScreen = (props: CardAddScreenProps | CardEditScreenProps) => {
   const { t } = useTranslation();
+
   const initialData = props.route.params?.card ?? undefined;
 
-  const [mode] = useState<'add' | 'edit'>(() => {
-    return initialData ? 'edit' : 'add';
-  });
+  const [mode] = useState<'add' | 'edit'>(() =>
+    initialData ? 'edit' : 'add',
+  );
 
-  const [cardName, setCardName] = useState<string>(initialData?.name ?? 'eAM');
-  const [cardNumber, setCardNumber] = useState<string>(() => {
-    return initialData?.sid ?? generateRandomCardNumber();
-  });
+  const [cardName, setCardName] = useState<string>(
+    initialData?.name ?? 'eAM',
+  );
+
+  const [cardNumber, setCardNumber] = useState<string>(() =>
+    initialData?.sid ?? generateRandomCardNumber(),
+  );
+
   const uid = useQuery(['uid', cardNumber], () =>
     CardConv.convertSID(cardNumber),
   );
@@ -171,15 +178,22 @@ const CardEditScreen = (props: CardAddScreenProps | CardEditScreenProps) => {
     setCardName(s);
   }, []);
 
+  const onChangeCardNumber = useCallback((text: string) => {
+    const sanitized = text
+      .replace(/[^a-fA-F0-9]/g, '')
+      .toUpperCase();
+
+    setCardNumber(sanitized);
+  }, []);
+
   const changeCardNumber = useCallback(() => {
     setCardNumber(generateRandomCardNumber());
   }, []);
 
   const queryClient = useQueryClient();
+
   const addMutation = useMutation(
-    (card: Card) => {
-      return addCard(card);
-    },
+    (card: Card) => addCard(card),
     {
       onSuccess: async () => {
         await queryClient.invalidateQueries('cards');
@@ -187,10 +201,10 @@ const CardEditScreen = (props: CardAddScreenProps | CardEditScreenProps) => {
       },
     },
   );
+
   const editMutation = useMutation(
-    ({ index, card }: { index: number; card: Card }) => {
-      return updateCard(index, card);
-    },
+    ({ index, card }: { index: number; card: Card }) =>
+      updateCard(index, card),
     {
       onSuccess: async () => {
         await queryClient.invalidateQueries('cards');
@@ -208,13 +222,16 @@ const CardEditScreen = (props: CardAddScreenProps | CardEditScreenProps) => {
     if (mode === 'add') {
       addMutation.mutate(card);
     } else {
-      editMutation.mutate({ index: props.route.params!.index, card: card });
+      editMutation.mutate({
+        index: props.route.params!.index,
+        card,
+      });
     }
   }, [
     addMutation,
+    editMutation,
     cardName,
     cardNumber,
-    editMutation,
     mode,
     props.route.params,
   ]);
@@ -231,12 +248,12 @@ const CardEditScreen = (props: CardAddScreenProps | CardEditScreenProps) => {
             name: cardName,
           }}
           mainText={t('card_edit.card_preview')}
-          index={0 /* dummy index */}
+          index={0}
           disabledMainButton={true}
           hideBottomMenu={true}
         />
 
-        <View style={[styles.fieldItemContainer]}>
+        <View style={styles.fieldItemContainer}>
           <TextField
             title={t('card_edit.card_name')}
             value={cardName}
@@ -247,9 +264,16 @@ const CardEditScreen = (props: CardAddScreenProps | CardEditScreenProps) => {
         <View style={styles.fieldItemContainer}>
           <TextField
             title={t('card_edit.card_number')}
-            value={styledUid}
-            editable={false}
+            value={cardNumber}
+            onChangeText={onChangeCardNumber}
+            autoCapitalize="characters"
+            autoCorrect={false}
           />
+
+          <Text style={styles.uidPreview}>
+            {styledUid}
+          </Text>
+
           <Button
             containerStyle={styles.cardNumberChangeButton}
             onPress={changeCardNumber}
@@ -272,21 +296,33 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+
   scrollView: {
     padding: 16,
   },
+
   fieldItemContainer: {
     paddingTop: 32,
   },
+
+  uidPreview: {
+    marginTop: 8,
+    fontSize: 14,
+    opacity: 0.7,
+  },
+
   buttonShadowStyle: {
     width: '100%',
   },
+
   buttonBorderRadius: {
     borderRadius: 8,
   },
+
   saveButton: {
     marginTop: 32,
   },
+
   cardNumberChangeButton: {
     marginTop: 16,
   },
