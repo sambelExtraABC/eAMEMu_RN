@@ -21,11 +21,11 @@ jobs:
           node-version: 18
           cache: yarn
 
-      - name: Install JS dependencies
+      - name: Install dependencies
         working-directory: .
         run: yarn install --frozen-lockfile
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -34,7 +34,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # generate keystore automatically
+      # generate keystore file
       - name: Generate keystore
         run: |
           keytool -genkeypair \
@@ -47,19 +47,19 @@ jobs:
             -validity 10000 \
             -storepass password123 \
             -keypass password123 \
-            -dname "CN=CI Build,O=GitHub,C=US"
+            -dname "CN=GitHub CI,O=CI,C=US"
 
-      # create keystore.properties expected by gradle
+      # create keystore.properties using keys expected by your gradle file
       - name: Create keystore.properties
         run: |
           cat <<EOF > keystore.properties
-          MYAPP_UPLOAD_STORE_FILE=release.keystore
-          MYAPP_UPLOAD_KEY_ALIAS=release-key
-          MYAPP_UPLOAD_STORE_PASSWORD=password123
-          MYAPP_UPLOAD_KEY_PASSWORD=password123
+          storeFile=release.keystore
+          storePassword=password123
+          keyAlias=release-key
+          keyPassword=password123
           EOF
 
-      - name: Grant gradle permission
+      - name: Grant gradlew permission
         run: chmod +x gradlew
 
       - name: Clean
@@ -68,8 +68,8 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: android-release-apk
+          name: release-apk
           path: android/app/build/outputs/apk/release/*.apk
