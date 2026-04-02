@@ -1,58 +1,75 @@
-name: Build React Native Android (manual)
+name: Build React Native Android (auto keystore)
 
 on:
-workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
-android-build:
-runs-on: ubuntu-latest
+  android-build:
+    runs-on: ubuntu-latest
 
-defaults:
-  run:
-    working-directory: android
+    defaults:
+      run:
+        working-directory: android
 
-steps:
-  - name: Checkout repo
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  - name: Setup Node
-    uses: actions/setup-node@v4
-    with:
-      node-version: 18
-      cache: yarn
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: yarn
 
-  - name: Install dependencies
-    working-directory: .
-    run: yarn install --frozen-lockfile
+      - name: Install JS dependencies
+        working-directory: .
+        run: yarn install --frozen-lockfile
 
-  - name: Setup Java
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: 17
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
-  - name: Setup Android SDK
-    uses: android-actions/setup-android@v3
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-  - name: Create keystore.properties
-    run: |
-      echo "${{ secrets.KEYSTORE_PROPERTIES }}" > android/keystore.properties
+      # generate keystore automatically
+      - name: Generate keystore
+        run: |
+          keytool -genkeypair \
+            -v \
+            -storetype PKCS12 \
+            -keystore app/release.keystore \
+            -alias release-key \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass password123 \
+            -keypass password123 \
+            -dname "CN=CI Build,O=GitHub,C=US"
 
-  - name: Decode keystore file
-    run: |
-      echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > android/app/upload-keystore.jks
+      # create keystore.properties expected by gradle
+      - name: Create keystore.properties
+        run: |
+          cat <<EOF > keystore.properties
+          MYAPP_UPLOAD_STORE_FILE=release.keystore
+          MYAPP_UPLOAD_KEY_ALIAS=release-key
+          MYAPP_UPLOAD_STORE_PASSWORD=password123
+          MYAPP_UPLOAD_KEY_PASSWORD=password123
+          EOF
 
-  - name: Grant gradlew permission
-    run: chmod +x gradlew
+      - name: Grant gradle permission
+        run: chmod +x gradlew
 
-  - name: Clean build
-    run: ./gradlew clean
+      - name: Clean
+        run: ./gradlew clean
 
-  - name: Build Release APK
-    run: ./gradlew assembleRelease
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
 
-  - name: Upload APK artifact
-    uses: actions/upload-artifact@v4
-    with:
-      name: android-release
-      path: android/app/build/outputs/apk/release/*.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
