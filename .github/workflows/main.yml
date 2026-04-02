@@ -1,47 +1,58 @@
 name: Build React Native Android (manual)
 
 on:
-  workflow_dispatch:
+workflow_dispatch:
 
 jobs:
-  android-build:
-    runs-on: ubuntu-latest
+android-build:
+runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: android
+defaults:
+  run:
+    working-directory: android
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+steps:
+  - name: Checkout repo
+    uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: yarn
+  - name: Setup Node
+    uses: actions/setup-node@v4
+    with:
+      node-version: 18
+      cache: yarn
 
-      - name: Install dependencies
-        working-directory: .
-        run: yarn install --frozen-lockfile
+  - name: Install dependencies
+    working-directory: .
+    run: yarn install --frozen-lockfile
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
+  - name: Setup Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+  - name: Setup Android SDK
+    uses: android-actions/setup-android@v3
 
-      - name: Grant gradle permission
-        run: chmod +x gradlew
+  - name: Create keystore.properties
+    run: |
+      echo "${{ secrets.KEYSTORE_PROPERTIES }}" > android/keystore.properties
 
-      - name: Build APK
-        run: ./gradlew assembleRelease
+  - name: Decode keystore file
+    run: |
+      echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > android/app/upload-keystore.jks
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-release
-          path: android/app/build/outputs/apk/release/*.apk
+  - name: Grant gradlew permission
+    run: chmod +x gradlew
+
+  - name: Clean build
+    run: ./gradlew clean
+
+  - name: Build Release APK
+    run: ./gradlew assembleRelease
+
+  - name: Upload APK artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: android-release
+      path: android/app/build/outputs/apk/release/*.apk
